@@ -3,8 +3,33 @@ import type { NodeId } from '../core/types';
 
 export interface AsyncLoadState {
   readonly status: 'idle' | 'loading' | 'loaded' | 'error';
-  readonly error: unknown;
+  readonly error: ClientSafeErrorDetails | null;
   readonly requestVersion: number;
+}
+
+export class ClientSafeError extends Error {
+  readonly code = 'TREE_CHILDREN_LOAD_FAILED' as const;
+
+  constructor() {
+    super('Unable to load tree children.');
+    this.name = 'ClientSafeError';
+  }
+}
+
+export interface ClientSafeErrorDetails {
+  readonly code: ClientSafeError['code'];
+  readonly message: 'Unable to load tree children.';
+}
+
+export interface AsyncLoadEvent {
+  readonly level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+  readonly message: `[FIX:client-safe-error] ${string}`;
+  readonly nodeId: NodeId;
+  readonly requestVersion: number;
+}
+
+export interface UseTreeAsyncOptions {
+  readonly onEvent?: ((event: AsyncLoadEvent) => void) | undefined;
 }
 
 export type LoadChildren<TNode> = (
@@ -12,7 +37,14 @@ export type LoadChildren<TNode> = (
   context: { readonly signal: AbortSignal },
 ) => Promise<readonly TNode[]>;
 
-export function useTreeAsync<TNode>(loadChildren: LoadChildren<TNode>) {
+export function toClientSafeError(): ClientSafeErrorDetails {
+  return { code: 'TREE_CHILDREN_LOAD_FAILED', message: 'Unable to load tree children.' };
+}
+
+export function useTreeAsync<TNode>(
+  loadChildren: LoadChildren<TNode>,
+  options: UseTreeAsyncOptions = {},
+) {
   const requests = useRef(new Map<NodeId, { version: number; controller: AbortController }>());
   const [states, setStates] = useState<ReadonlyMap<NodeId, AsyncLoadState>>(new Map());
   const load = useCallback(
@@ -22,6 +54,12 @@ export function useTreeAsync<TNode>(loadChildren: LoadChildren<TNode>) {
       const controller = new AbortController();
       const version = (states.get(nodeId)?.requestVersion ?? 0) + 1;
       requests.current.set(nodeId, { version, controller });
+      options.onEvent?.({
+        level: 'DEBUG',
+        message: '[FIX:client-safe-error] async load started',
+        nodeId,
+        requestVersion: version,
+      });
       setStates((previous) =>
         new Map(previous).set(nodeId, { status: 'loading', error: null, requestVersion: version }),
       );
@@ -29,20 +67,37 @@ export function useTreeAsync<TNode>(loadChildren: LoadChildren<TNode>) {
         const children = await loadChildren(nodeId, { signal: controller.signal });
         if (requests.current.get(nodeId)?.version !== version) return;
         requests.current.delete(nodeId);
+        options.onEvent?.({
+          level: 'INFO',
+          message: '[FIX:client-safe-error] async load completed',
+          nodeId,
+          requestVersion: version,
+        });
         setStates((previous) =>
           new Map(previous).set(nodeId, { status: 'loaded', error: null, requestVersion: version }),
         );
         return children;
-      } catch (error) {
+      } catch {
         if (controller.signal.aborted || requests.current.get(nodeId)?.version !== version) return;
         requests.current.delete(nodeId);
+        const safeError = toClientSafeError();
+        options.onEvent?.({
+          level: 'ERROR',
+          message: '[FIX:client-safe-error] async load failed; raw error withheld',
+          nodeId,
+          requestVersion: version,
+        });
         setStates((previous) =>
-          new Map(previous).set(nodeId, { status: 'error', error, requestVersion: version }),
+          new Map(previous).set(nodeId, {
+            status: 'error',
+            error: safeError,
+            requestVersion: version,
+          }),
         );
-        throw error;
+        throw new ClientSafeError();
       }
     },
-    [loadChildren, states],
+    [loadChildren, options, states],
   );
   const abort = useCallback((nodeId: NodeId) => {
     requests.current.get(nodeId)?.controller.abort();

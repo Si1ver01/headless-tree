@@ -1,4 +1,4 @@
-import { renderHook, act } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useTreeAsync } from '../../src/react/use-tree-async';
 
@@ -26,5 +26,27 @@ describe('useTreeAsync', () => {
       status: 'loaded',
       requestVersion: 1,
     });
+  });
+
+  it('withholds raw loader errors from state and rejected promises', async () => {
+    const events: string[] = [];
+    const loader = vi.fn(() =>
+      Promise.reject(new Error('database connection string must never reach the UI')),
+    );
+    const { result } = renderHook(() =>
+      useTreeAsync(loader, { onEvent: (event) => events.push(event.message) }),
+    );
+
+    await expect(result.current.load('parent')).rejects.toMatchObject({
+      code: 'TREE_CHILDREN_LOAD_FAILED',
+      message: 'Unable to load tree children.',
+    });
+    await waitFor(() =>
+      expect(result.current.states.get('parent')?.error).toMatchObject({
+        code: 'TREE_CHILDREN_LOAD_FAILED',
+        message: 'Unable to load tree children.',
+      }),
+    );
+    expect(events.at(-1)).toContain('raw error withheld');
   });
 });
