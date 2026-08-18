@@ -4,7 +4,7 @@ import type { NodeId } from '../core/types';
 export interface AsyncLoadState {
   readonly status: 'idle' | 'loading' | 'loaded' | 'error';
   readonly error: unknown;
-  readonly requestToken: number;
+  readonly requestVersion: number;
 }
 
 export type LoadChildren<TNode> = (
@@ -13,31 +13,31 @@ export type LoadChildren<TNode> = (
 ) => Promise<readonly TNode[]>;
 
 export function useTreeAsync<TNode>(loadChildren: LoadChildren<TNode>) {
-  const requests = useRef(new Map<NodeId, { token: number; controller: AbortController }>());
+  const requests = useRef(new Map<NodeId, { version: number; controller: AbortController }>());
   const [states, setStates] = useState<ReadonlyMap<NodeId, AsyncLoadState>>(new Map());
   const load = useCallback(
     async (nodeId: NodeId) => {
       const existing = requests.current.get(nodeId);
       if (existing) return;
       const controller = new AbortController();
-      const token = (states.get(nodeId)?.requestToken ?? 0) + 1;
-      requests.current.set(nodeId, { token, controller });
+      const version = (states.get(nodeId)?.requestVersion ?? 0) + 1;
+      requests.current.set(nodeId, { version, controller });
       setStates((previous) =>
-        new Map(previous).set(nodeId, { status: 'loading', error: null, requestToken: token }),
+        new Map(previous).set(nodeId, { status: 'loading', error: null, requestVersion: version }),
       );
       try {
         const children = await loadChildren(nodeId, { signal: controller.signal });
-        if (requests.current.get(nodeId)?.token !== token) return;
+        if (requests.current.get(nodeId)?.version !== version) return;
         requests.current.delete(nodeId);
         setStates((previous) =>
-          new Map(previous).set(nodeId, { status: 'loaded', error: null, requestToken: token }),
+          new Map(previous).set(nodeId, { status: 'loaded', error: null, requestVersion: version }),
         );
         return children;
       } catch (error) {
-        if (controller.signal.aborted || requests.current.get(nodeId)?.token !== token) return;
+        if (controller.signal.aborted || requests.current.get(nodeId)?.version !== version) return;
         requests.current.delete(nodeId);
         setStates((previous) =>
-          new Map(previous).set(nodeId, { status: 'error', error, requestToken: token }),
+          new Map(previous).set(nodeId, { status: 'error', error, requestVersion: version }),
         );
         throw error;
       }

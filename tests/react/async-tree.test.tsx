@@ -22,6 +22,9 @@ describe('useTreeAsync', () => {
       resolve?.(['child']);
       await first;
     });
-    expect(result.current.states.get('parent')?.status).toBe('loaded');
+    expect(result.current.states.get('parent')).toMatchObject({
+      status: 'loaded',
+      requestVersion: 1,
+    });
   });
 });
