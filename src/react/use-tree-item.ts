@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import type { NodeId } from '../core/types';
+import type { useTree } from './use-tree';
 
-export function useTreeItem<TNode>(
-  tree: ReturnType<typeof import('./use-tree').useTree<TNode>>,
-  id: NodeId,
-) {
+type TreeApi<TNode> = ReturnType<typeof useTree<TNode>>;
+
+export function useTreeItem<TNode>(tree: TreeApi<TNode>, id: NodeId) {
   return useMemo(() => {
     const row = tree.visibleItems.find((item) => item.id === id);
     return { row, getItemProps: (props?: Record<string, unknown>) => tree.getItemProps(id, props) };

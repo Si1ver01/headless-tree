@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import type { NodeId } from '../core/types';
+import type { useTree } from './use-tree';
 
-export function useTreeGroup<TNode>(
-  tree: ReturnType<typeof import('./use-tree').useTree<TNode>>,
-  parentId: NodeId,
-) {
+type TreeApi<TNode> = ReturnType<typeof useTree<TNode>>;
+
+export function useTreeGroup<TNode>(tree: TreeApi<TNode>, parentId: NodeId) {
   return useMemo(
     () => ({
       parentId,

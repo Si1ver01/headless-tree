@@ -51,11 +51,6 @@ export function normalizeTree<TNode>(
     }
 
     const children = options.getNodeChildren?.(node);
-    if (children !== undefined && !Array.isArray(children)) {
-      diagnostics.push(
-        diagnostic('invalid-children', 'children must be an array', [...ancestors, id], id),
-      );
-    }
     const childIds: NodeId[] = [];
     const record: TreeNodeRecord<TNode> = {
       id,
@@ -67,7 +62,8 @@ export function normalizeTree<TNode>(
       expandable: Boolean(children?.length),
     };
     nodes.set(id, record);
-    for (const child of children ?? []) {
+    const childNodes: readonly TNode[] = children ?? [];
+    for (const child of childNodes) {
       const childId = visit(child, id, [...ancestors, id]);
       if (childId) childIds.push(childId);
     }
