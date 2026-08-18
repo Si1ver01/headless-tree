@@ -12,15 +12,34 @@ try {
   const { stdout } = await exec('npm', ['pack', '--dry-run', '--json'], { cwd: root });
   const [summary] = JSON.parse(stdout);
   const files = summary?.files?.map(({ path }) => path) ?? [];
-  const forbidden = files.filter((file) => /(^|\/)(tests?|\.env|node_modules)(\/|$)|\.map$/.test(file));
+  const forbidden = files.filter((file) =>
+    /(^|\/)(tests?|\.env|node_modules)(\/|$)|\.map$/.test(file),
+  );
   if (forbidden.length > 0) throw new Error(`forbidden package files: ${forbidden.join(', ')}`);
-  for (const required of ['dist/index.js', 'dist/index.cjs', 'dist/index.d.ts', 'README.md', 'LICENSE']) {
+  for (const required of [
+    'dist/index.js',
+    'dist/index.cjs',
+    'dist/index.d.ts',
+    'README.md',
+    'LICENSE',
+  ]) {
     if (!files.includes(required)) throw new Error(`missing package file: ${required}`);
   }
-  await writeFile(join(temp, 'summary.json'), JSON.stringify({ name: pkg.name, version: pkg.version, files }, null, 2));
-  process.stdout.write(JSON.stringify({ name: pkg.name, version: pkg.version, files: files.length }) + '\n');
+  await writeFile(
+    join(temp, 'summary.json'),
+    JSON.stringify({ name: pkg.name, version: pkg.version, files }, null, 2),
+  );
+  process.stdout.write(
+    JSON.stringify({ name: pkg.name, version: pkg.version, files: files.length }) + '\n',
+  );
 } catch (error) {
-  console.error(JSON.stringify({ stage: 'pack-check', level: 'ERROR', message: error instanceof Error ? error.message : String(error) }));
+  console.error(
+    JSON.stringify({
+      stage: 'pack-check',
+      level: 'ERROR',
+      message: error instanceof Error ? error.message : String(error),
+    }),
+  );
   process.exitCode = 1;
 } finally {
   await rm(temp, { recursive: true, force: true });

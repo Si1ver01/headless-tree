@@ -5,7 +5,13 @@ keyboard navigation, selection and async children loading while leaving markup a
 
 ```tsx
 const tree = useTree({ nodes, getNodeId: (node) => node.id, getNodeLabel: (node) => node.label });
-return <div {...tree.getTreeProps()}>{tree.visibleItems.map((item) => <div {...item.getItemProps()} />)}</div>;
+return (
+  <div {...tree.getTreeProps()}>
+    {tree.visibleItems.map((item) => (
+      <div {...item.getItemProps()} />
+    ))}
+  </div>
+);
 ```
 
 The first release focuses on predictable keyboard and async behavior. Virtualization, drag-and-drop and inline
