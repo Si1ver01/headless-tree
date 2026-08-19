@@ -43,7 +43,7 @@
     "react": ">=18.0.0 <20.0.0"
   },
   "scripts": {
-    "build": "node scripts/run-commands.mjs build tsup",
+    "build": "node scripts/run-commands.mjs build node scripts/check-build-config.mjs ::: tsup",
     "typecheck": "node scripts/run-commands.mjs typecheck tsc --noEmit",
     "test": "node scripts/run-commands.mjs test vitest run",
     "test:watch": "vitest",

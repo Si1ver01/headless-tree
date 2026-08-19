@@ -9,7 +9,10 @@ const root = process.cwd();
 const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
 const temp = await mkdtemp(join(tmpdir(), 'headless-tree-pack-'));
 try {
-  const { stdout } = await exec('npm', ['pack', '--dry-run', '--json'], { cwd: root });
+  const { stdout } = await exec('npm', ['pack', '--dry-run', '--json'], {
+    cwd: root,
+    env: { ...process.env, npm_config_cache: join(temp, 'npm-cache') },
+  });
   const [summary] = JSON.parse(stdout);
   const files = summary?.files?.map(({ path }) => path) ?? [];
   const forbidden = files.filter((file) =>
@@ -30,7 +33,13 @@ try {
     JSON.stringify({ name: pkg.name, version: pkg.version, files }, null, 2),
   );
   process.stdout.write(
-    JSON.stringify({ name: pkg.name, version: pkg.version, files: files.length }) + '\n',
+    JSON.stringify({
+      level: 'INFO',
+      message: '[FIX:pack-cache] package check completed with isolated npm cache',
+      name: pkg.name,
+      version: pkg.version,
+      files: files.length,
+    }) + '\n',
   );
 } catch (error) {
   console.error(
